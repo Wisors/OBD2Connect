@@ -69,7 +69,7 @@
 		6D9402561E45AD1400041D54 = {
 			isa = PBXGroup;
 			children = (
-				6D9402841E45AF1F00041D54 /* Source */,
+				6D9402841E45AF1F00041D54 /* Sources */,
 				6D9402611E45AD1400041D54 /* OBD2ConnectDemo */,
 				6D9402761E45AD1400041D54 /* OBD2ConnectDemoTests */,
 				6D9402601E45AD1400041D54 /* Products */,
@@ -107,7 +107,7 @@
 			path = OBD2ConnectDemoTests;
 			sourceTree = "<group>";
 		};
-		6D9402841E45AF1F00041D54 /* Source */ = {
+		6D9402841E45AF1F00041D54 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				6D9402851E45AF1F00041D54 /* OBDCommonTypes.swift */,
@@ -116,8 +116,8 @@
 				6D9402881E45AF1F00041D54 /* OBDConnectionProtocol.swift */,
 				6D9402891E45AF1F00041D54 /* OBDResult.swift */,
 			);
-			name = Source;
-			path = ../Source;
+			name = Sources;
+			path = ../Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
