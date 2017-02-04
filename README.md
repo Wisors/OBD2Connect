@@ -1,4 +1,4 @@
-#RunIt
+#OBD2Connect
 
 <p align="left">
 <a href="https://developer.apple.com/swift"><img src="https://img.shields.io/badge/Swift_3.0-compatible-4BC51D.svg?style=flat" alt="Swift 3.0 compatible" /></a>
