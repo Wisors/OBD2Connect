@@ -4,5 +4,5 @@
 import Foundation
 
 // ODB typedefs
-public typealias OBDDataResultCallback = (OBDResult<Data>) -> Void
+public typealias OBDDataResultCallback = (OBDResult<String>) -> Void
 public typealias OBDConnectionStateCallback = (OBDConnectionState) -> Void

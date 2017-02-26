@@ -8,6 +8,7 @@ open class OBDConnection: OBDConnectionProtocol {
     // MARK: - Connection properties -
     open let host: String
     open let port: UInt32
+    open var requestTimeout: TimeInterval
     
     // MARK: - State handling & data received callback -
     open var onStateChanged: OBDConnectionStateCallback? = nil
@@ -23,20 +24,25 @@ open class OBDConnection: OBDConnectionProtocol {
     private var streamsDelegate: WS_StreamDelegate!
     private var input: InputStream?
     private var output: OutputStream?
-    private var resultCallback: OBDDataResultCallback? = nil
+    
+    // MARK: - Request handling -
+    private var requestResponse: String = ""
+    private var timeoutTimer: Timer?
+    private var resultCallback: OBDDataResultCallback?
     
     // MARK: - Init -
-    public init(host: String = "192.168.0.10", port: UInt32 = 35000) {
+    public init(host: String = "192.168.0.10", port: UInt32 = 35000, requestTimeout: TimeInterval = 0.100) {
         
         self.host = host
         self.port = port
+        self.requestTimeout = requestTimeout
         streamsDelegate = WS_StreamDelegate() { [weak self] stream, event in
             self?.handleEvent(code: event, inStream: stream)
         }
     }
     
     deinit {
-        closeStreams()
+        flushConnection()
     }
     
     // MARK: - Open -
@@ -65,25 +71,37 @@ open class OBDConnection: OBDConnectionProtocol {
     open func close() {
         guard state != .closed else { return }
         
-        closeStreams()
+        flushConnection()
         state = .closed
     }
     
     private func close(withError error: OBDConnectionError) {
         
-        closeStreams()
+        flushConnection()
         state = .error(error)
     }
     
-    private func closeStreams() {
+    private func flushConnection() {
         
+        flushTimeoutTimer()
         output?.close()
         output?.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
+        output = nil
         input?.close()
-        output?.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
+        input?.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
+        input = nil
     }
     
     // MARK: - Data transmitting -
+    
+    /// Send data request. Completion handler will be executed in 3 cases.
+    /// 1) An error is occured in connection
+    /// 2) Connection receive termination character ">" means response received
+    /// 3) Request timeout is reached, all currently available response will be sent
+    ///
+    /// - Parameters:
+    ///   - data: Data to send
+    ///   - completion: Result completion
     open func send(data: Data, completion: OBDDataResultCallback?) {
         guard data.count > 0 else {
             
@@ -97,6 +115,7 @@ open class OBDConnection: OBDConnectionProtocol {
         }
         
         state = .transmitting
+        requestResponse = ""
         guard data.withUnsafeBytes({ output.write($0, maxLength: data.count) }) == data.count else {
             
             state = .open
@@ -104,6 +123,7 @@ open class OBDConnection: OBDConnectionProtocol {
             return
         }
         resultCallback = completion
+        startTimeoutTimer()
     }
 
     // MARK: - Stream event handling -
@@ -132,19 +152,31 @@ open class OBDConnection: OBDConnectionProtocol {
     private func handleBytesAvailable(inStream stream: Stream) {
         guard let input = input, stream == input else { return }
         
-        var buffer = [UInt8](repeating: 0, count: 1024)
+        var buffer = [UInt8](repeating: 0, count: 512)
         while input.hasBytesAvailable {
             
             let len = input.read(&buffer, maxLength: buffer.count)
-            finishTransmission(withData: Data(buffer[0..<len]))
+            handleReceived(data: Data(buffer[0..<len]))
         }
     }
     
-    private func finishTransmission(withData data: Data) {
+    private func handleReceived(data: Data) {
+        guard let response = String(bytes: data, encoding: String.Encoding.ascii) else {
+            finishTransmission(result: .failure(.responseIsInvaid)); return
+        }
         
-        resultCallback?(.success(data))
-        resultCallback = nil
+        requestResponse = requestResponse + response
+        if requestResponse.hasSuffix(">") {
+            finishTransmission(result: .success(requestResponse))
+        }
+    }
+    
+    private func finishTransmission(result: OBDResult<String>) {
+        
+        flushTimeoutTimer()
         state = .open
+        resultCallback?(result)
+        resultCallback = nil
     }
     
     private func handleErrorState(inStream stream: Stream) {
@@ -156,6 +188,21 @@ open class OBDConnection: OBDConnectionProtocol {
             error = .unknown
         }
         close(withError: error)
+    }
+    
+    // MARK: Timeout handling -
+    private func startTimeoutTimer() {
+        timeoutTimer = Timer.scheduledTimer(timeInterval: requestTimeout, target: self, selector: #selector(timeoutReached), userInfo: nil, repeats: false)
+    }
+    
+    @objc private func timeoutReached() {
+        finishTransmission(result: .failure(.requestTimeout))
+    }
+    
+    private func flushTimeoutTimer() {
+        
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
     }
 }
 

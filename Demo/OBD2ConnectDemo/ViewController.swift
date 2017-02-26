@@ -23,15 +23,13 @@ class ViewController: UIViewController {
             
             self.connection.send(data: "ATZ\r".data(using: .ascii)!) { data in
                 
-                data.onSuccess(block: { data in
-                    
-                    let response = String(bytes: data, encoding: String.Encoding.ascii)
-                    print(response ?? "Empty response recieved")
-                })
+                data.onSuccess { data in
+                    print(data)
+                }
 
-                data.onFailure(block: { error in
+                data.onFailure { error in
                     print(String(describing: error))
-                })
+                }
             }
         }
     }
