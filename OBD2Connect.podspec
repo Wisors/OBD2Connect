@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
     s.name                  = 'OBD2Connect'
     s.module_name           = 'OBD2Connect'
 
-    s.version               = '1.1.0'
+    s.version               = '1.1.1'
 
     s.homepage              = 'https://github.com/Wisors/OBD2Connect'
     s.summary               = 'A simple component that handles connection to a OBD2 adapter via socket.'

@@ -28,7 +28,7 @@ open class OBDConnection: OBDConnectionProtocol {
     // MARK: - Request handling -
     private var requestResponse: String = ""
     private var timeoutTimer: Timer?
-    private var resultCallback: OBDDataResultCallback?
+    private var resultCallback: OBDResultCallback?
     
     // MARK: - Init -
     public init(host: String = "192.168.0.10", port: UInt32 = 35000, requestTimeout: TimeInterval = 0.100) {
@@ -47,7 +47,7 @@ open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: - Open -
     open func open() {
-        guard state != .connecting && state != .open else { return }
+        guard state == .closed || state == .error(.unknown) else { return }
         
         state = .connecting
         var readStream: Unmanaged<CFReadStream>?
@@ -102,7 +102,7 @@ open class OBDConnection: OBDConnectionProtocol {
     /// - Parameters:
     ///   - data: Data to send
     ///   - completion: Result completion
-    open func send(data: Data, completion: OBDDataResultCallback?) {
+    open func send(data: Data, completion: OBDResultCallback?) {
         guard data.count > 0 else {
             
             completion?(.failure(.sendingInvalidData))

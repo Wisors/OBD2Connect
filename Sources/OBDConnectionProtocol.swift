@@ -3,7 +3,7 @@
 
 import Foundation
 
-/// Protocol covers main properties and methos of base connection to OBD adapter.
+/// Protocol covers properties and methods of the connection to an OBD adapter.
 public protocol OBDConnectionProtocol {
     
     // MARK: State
@@ -11,7 +11,7 @@ public protocol OBDConnectionProtocol {
     var onStateChanged: OBDConnectionStateCallback? { get set }
     
     // MARK: Data transmitting
-    func send(data: Data, completion: OBDDataResultCallback?)
+    func send(data: Data, completion: OBDResultCallback?)
     
     // MARK: Connection hadling methods
     func open()
