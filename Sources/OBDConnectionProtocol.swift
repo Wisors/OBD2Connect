@@ -6,6 +6,8 @@ import Foundation
 /// Protocol covers properties and methods of the connection to an OBD adapter.
 public protocol OBDConnectionProtocol {
     
+    var requestTimeout: TimeInterval { get set }
+    
     // MARK: State
     var state: OBDConnectionState { get }
     var onStateChanged: OBDConnectionStateCallback? { get set }

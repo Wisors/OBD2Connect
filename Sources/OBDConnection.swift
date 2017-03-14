@@ -8,6 +8,7 @@ open class OBDConnection: OBDConnectionProtocol {
     // MARK: - Connection properties -
     open let host: String
     open let port: UInt32
+    open let queue: DispatchQueue
     open var requestTimeout: TimeInterval
     
     // MARK: - State handling & data received callback -
@@ -31,10 +32,14 @@ open class OBDConnection: OBDConnectionProtocol {
     private var resultCallback: OBDResultCallback?
     
     // MARK: - Init -
-    public init(host: String = "192.168.0.10", port: UInt32 = 35000, requestTimeout: TimeInterval = 0.100) {
+    public init(host: String = "192.168.0.10",
+                port: UInt32 = 35000,
+                queue: DispatchQueue = DispatchQueue(label: "OBDConnectionQueue", attributes: .concurrent),
+                requestTimeout: TimeInterval = 0.100) {
         
         self.host = host
         self.port = port
+        self.queue = queue
         self.requestTimeout = requestTimeout
         streamsDelegate = WS_StreamDelegate() { [weak self] stream, event in
             self?.handleEvent(code: event, inStream: stream)
@@ -56,8 +61,12 @@ open class OBDConnection: OBDConnectionProtocol {
         
         input = readStream?.takeRetainedValue()
         output = writeStream?.takeRetainedValue()
-        configureAndOpen(stream: input)
-        configureAndOpen(stream: output)
+        queue.async { [weak self] in
+            
+            self?.configureAndOpen(stream: self?.input)
+            self?.configureAndOpen(stream: self?.output)
+            RunLoop.current.run()
+        }
     }
     
     private func configureAndOpen(stream: Stream?) {
@@ -175,8 +184,11 @@ open class OBDConnection: OBDConnectionProtocol {
         
         flushTimeoutTimer()
         state = .open
-        resultCallback?(result)
+        let callback = resultCallback
         resultCallback = nil
+        DispatchQueue.main.async {
+            callback?(result)
+        }
     }
     
     private func handleErrorState(inStream stream: Stream) {
