@@ -12,13 +12,10 @@ open class OBDConnection: OBDConnectionProtocol {
     open var requestTimeout: TimeInterval
     
     // MARK: - State handling & data received callback -
+    /// This block will be executed on connection queue each time the state of a connection changes.
     open var onStateChanged: OBDConnectionStateCallback? = nil
     open private(set) var state: OBDConnectionState = .closed {
-        didSet {
-            if state != oldValue {
-                onStateChanged?(state)
-            }
-        }
+        didSet { stateValueChanged(oldValue: oldValue) }
     }
     
     // MARK: - Streams -
@@ -48,6 +45,15 @@ open class OBDConnection: OBDConnectionProtocol {
     
     deinit {
         flushConnection()
+    }
+    
+    private func stateValueChanged(oldValue: OBDConnectionState) {
+        guard state != oldValue else { return }
+        
+        let newState = state
+        queue.async(flags: .barrier, execute: { [weak self] in
+            self?.onStateChanged?(newState)
+        })
     }
     
     // MARK: - Open -
