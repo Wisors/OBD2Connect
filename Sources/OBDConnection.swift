@@ -8,37 +8,38 @@ open class OBDConnection: OBDConnectionProtocol {
     // MARK: - Connection properties -
     open let host: String
     open let port: UInt32
-    open let queue: DispatchQueue
+    open let completionQueue: DispatchQueue
     open var requestTimeout: TimeInterval
     
     // MARK: - State handling & data received callback -
-    /// This block will be executed on connection queue each time the state of a connection changes.
+    /// Tthe main queue is always used to dispatch this block.
     open var onStateChanged: OBDConnectionStateCallback? = nil
     open private(set) var state: OBDConnectionState = .closed {
         didSet { stateValueChanged(oldValue: oldValue) }
     }
     
     // MARK: - Streams -
-    private var streamsDelegate: WS_StreamDelegate!
+    private var streamsDelegate: OBDStreamDelegate!
+    private var streamQueue = DispatchQueue(label: "OBDConnectionQueue", qos: .utility, attributes: .concurrent)
     private var input: InputStream?
     private var output: OutputStream?
     
     // MARK: - Request handling -
     private var requestResponse: String = ""
     private var timeoutTimer: Timer?
-    private var resultCallback: OBDResultCallback?
+    private var resultCompletion: OBDResultCallback?
     
     // MARK: - Init -
     public init(host: String = "192.168.0.10",
                 port: UInt32 = 35000,
-                queue: DispatchQueue = DispatchQueue(label: "OBDConnectionQueue", attributes: .concurrent),
+                completionQueue: DispatchQueue = DispatchQueue.main,
                 requestTimeout: TimeInterval = 0.100) {
         
         self.host = host
         self.port = port
-        self.queue = queue
+        self.completionQueue = completionQueue
         self.requestTimeout = requestTimeout
-        streamsDelegate = WS_StreamDelegate() { [weak self] stream, event in
+        streamsDelegate = OBDStreamDelegate() { [weak self] stream, event in
             self?.handleEvent(code: event, inStream: stream)
         }
     }
@@ -51,7 +52,7 @@ open class OBDConnection: OBDConnectionProtocol {
         guard state != oldValue else { return }
         
         let newState = state
-        queue.async(flags: .barrier, execute: { [weak self] in
+        DispatchQueue.main.async(flags: .barrier, execute: { [weak self] in
             self?.onStateChanged?(newState)
         })
     }
@@ -67,7 +68,7 @@ open class OBDConnection: OBDConnectionProtocol {
         
         input = readStream?.takeRetainedValue()
         output = writeStream?.takeRetainedValue()
-        queue.async { [weak self] in
+        streamQueue.async { [weak self] in
             
             self?.configureAndOpen(stream: self?.input)
             self?.configureAndOpen(stream: self?.output)
@@ -119,26 +120,28 @@ open class OBDConnection: OBDConnectionProtocol {
     ///   - completion: Result completion
     open func send(data: Data, completion: OBDResultCallback?) {
         guard data.count > 0 else {
-            
-            completion?(.failure(.sendingInvalidData))
+
+            completionQueue.async { completion?(.failure(.sendingInvalidData)) }
             return
         }
         guard let output = output, state == .open else {
-        
-            completion?(.failure(.sendingIsNotAvailable))
+
+            completionQueue.async { completion?(.failure(.sendingIsNotAvailable)) }
             return
         }
-        
-        state = .transmitting
-        requestResponse = ""
-        guard data.withUnsafeBytes({ output.write($0, maxLength: data.count) }) == data.count else {
+        streamQueue.async { [weak self] in
             
-            state = .open
-            completion?(.failure(.sendingDidFail))
-            return
+            self?.state = .transmitting
+            self?.requestResponse = ""
+            guard data.withUnsafeBytes({ output.write($0, maxLength: data.count) }) == data.count else {
+                
+                self?.state = .open
+                self?.completionQueue.async { completion?(.failure(.sendingDidFail)) }
+                return
+            }
+            self?.resultCompletion = completion
+            self?.startTimeoutTimer()
         }
-        resultCallback = completion
-        startTimeoutTimer()
     }
 
     // MARK: - Stream event handling -
@@ -190,10 +193,10 @@ open class OBDConnection: OBDConnectionProtocol {
         
         flushTimeoutTimer()
         state = .open
-        let callback = resultCallback
-        resultCallback = nil
-        DispatchQueue.main.async {
-            callback?(result)
+        let completion = resultCompletion
+        resultCompletion = nil
+        completionQueue.async {
+            completion?(result)
         }
     }
     
@@ -221,19 +224,5 @@ open class OBDConnection: OBDConnectionProtocol {
         
         timeoutTimer?.invalidate()
         timeoutTimer = nil
-    }
-}
-
-private class WS_StreamDelegate: NSObject, StreamDelegate {
-    
-    let streamEventHandler: (Stream, Stream.Event) -> Void
-    
-    init(streamEventHandler: @escaping (Stream, Stream.Event) -> Void) {
-        self.streamEventHandler = streamEventHandler
-    }
-    
-    // MARK: - StreamDelegate -
-    @objc open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        streamEventHandler(aStream, eventCode)
     }
 }

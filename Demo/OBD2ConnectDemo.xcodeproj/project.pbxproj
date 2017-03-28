@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6D14E8A51E8A379C00F111B0 /* OBDStreamDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D14E8A41E8A379C00F111B0 /* OBDStreamDelegate.swift */; };
 		6D9402631E45AD1400041D54 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9402621E45AD1400041D54 /* AppDelegate.swift */; };
 		6D9402651E45AD1400041D54 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9402641E45AD1400041D54 /* ViewController.swift */; };
 		6D9402681E45AD1400041D54 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6D9402661E45AD1400041D54 /* Main.storyboard */; };
@@ -31,6 +32,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6D14E8A41E8A379C00F111B0 /* OBDStreamDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OBDStreamDelegate.swift; sourceTree = "<group>"; };
 		6D94025F1E45AD1400041D54 /* OBD2ConnectDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OBD2ConnectDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D9402621E45AD1400041D54 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		6D9402641E45AD1400041D54 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 				6D9402871E45AF1F00041D54 /* OBDConnectionError.swift */,
 				6D9402881E45AF1F00041D54 /* OBDConnectionProtocol.swift */,
 				6D9402891E45AF1F00041D54 /* OBDResult.swift */,
+				6D14E8A41E8A379C00F111B0 /* OBDStreamDelegate.swift */,
 			);
 			name = Sources;
 			path = ../Sources;
@@ -229,6 +232,7 @@
 				6D94028A1E45AF1F00041D54 /* OBDCommonTypes.swift in Sources */,
 				6D9402631E45AD1400041D54 /* AppDelegate.swift in Sources */,
 				6D94028B1E45AF1F00041D54 /* OBDConnection.swift in Sources */,
+				6D14E8A51E8A379C00F111B0 /* OBDStreamDelegate.swift in Sources */,
 				6D94028D1E45AF1F00041D54 /* OBDConnectionProtocol.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

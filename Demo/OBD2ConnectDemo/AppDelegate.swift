@@ -1,7 +1,4 @@
-//
-//  AppDelegate.swift
-//  OBD2ConnectDemo
-//
+
 //  Created by Alex Nikishin on 04/02/2017.
 //  Copyright © 2017 Wisors. All rights reserved.
 //

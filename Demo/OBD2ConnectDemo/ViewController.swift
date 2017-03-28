@@ -1,16 +1,11 @@
-//
-//  ViewController.swift
-//  OBD2ConnectDemo
-//
 //  Created by Alex Nikishin on 04/02/2017.
 //  Copyright © 2017 Wisors. All rights reserved.
-//
 
 import UIKit
 
 class ViewController: UIViewController {
 
-    let connection = OBDConnection()
+    let connection = OBDConnection(completionQueue: DispatchQueue(label: "test", qos: .default))
     
     override func viewDidLoad() {
         super.viewDidLoad()
