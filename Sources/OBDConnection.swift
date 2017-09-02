@@ -22,40 +22,35 @@ import Foundation
 open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: - Connection properties -
-    open let host: String
-    open let port: UInt32
+    open let configuration: OBDConnectionConfiguration
     open let completionQueue: DispatchQueue
-    open var requestTimeout: TimeInterval
     
     // MARK: - State handling & data received callback -
-    /// Tthe main queue is always used to dispatch this block.
+    /// The completion queue is used to dispatch this block.
     open var onStateChanged: OBDConnectionStateCallback? = nil
     open private(set) var state: OBDConnectionState = .closed {
         didSet { stateValueChanged(oldValue: oldValue) }
     }
     
     // MARK: - Streams -
-    private var streamsDelegate: OBDStreamDelegate!
+    private var streamsDelegate: OBDStreamDelegate
     private var streamQueue = DispatchQueue(label: "OBDConnectionQueue", qos: .utility, attributes: .concurrent)
     private var input: InputStream?
     private var output: OutputStream?
     
     // MARK: - Request handling -
     private var requestResponse: String = ""
-    private var timeoutTimer: Timer?
-    private var resultCompletion: OBDResultCallback?
+    private var requestTimeoutTimer: Timer?
+    private var requestCompletion: OBDResultCallback?
     
     // MARK: - Init -
-    public init(host: String = "192.168.0.10",
-                port: UInt32 = 35000,
-                completionQueue: DispatchQueue = DispatchQueue.main,
-                requestTimeout: TimeInterval = 0.100) {
+    public init(configuration: OBDConnectionConfiguration = OBDConnectionConfiguration.defaultELMAdapterConfiguration(),
+                completionQueue: DispatchQueue = DispatchQueue.main) {
         
-        self.host = host
-        self.port = port
+        self.configuration = configuration
         self.completionQueue = completionQueue
-        self.requestTimeout = requestTimeout
-        streamsDelegate = OBDStreamDelegate() { [weak self] stream, event in
+        self.streamsDelegate = OBDStreamDelegate()
+        self.streamsDelegate.onStreamEvent = { [weak self] (stream, event) in
             self?.handleEvent(code: event, inStream: stream)
         }
     }
@@ -68,19 +63,26 @@ open class OBDConnection: OBDConnectionProtocol {
         guard state != oldValue else { return }
         
         let newState = state
-        DispatchQueue.main.async(flags: .barrier, execute: { [weak self] in
+        completionQueue.async(flags: .barrier, execute: { [weak self] in
             self?.onStateChanged?(newState)
         })
     }
     
     // MARK: - Open -
     open func open() {
-        guard state == .closed || state == .error(.unknown) else { return }
+        guard state == .closed || state == .error(.unknown) else {
+            assertionFailure("Trying to open connection while it already is opened")
+            return
+        }
         
         state = .connecting
         var readStream: Unmanaged<CFReadStream>?
         var writeStream: Unmanaged<CFWriteStream>?
-        CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault, host as CFString, port, &readStream, &writeStream)
+        CFStreamCreatePairWithSocketToHost(kCFAllocatorDefault,
+                                           configuration.host as CFString,
+                                           configuration.port,
+                                           &readStream,
+                                           &writeStream)
         
         input = readStream?.takeRetainedValue()
         output = writeStream?.takeRetainedValue()
@@ -89,6 +91,9 @@ open class OBDConnection: OBDConnectionProtocol {
             self?.configureAndOpen(stream: self?.input)
             self?.configureAndOpen(stream: self?.output)
             RunLoop.current.run()
+        }
+        streamQueue.async { [weak self] in
+            self?.startTimeoutTimer()
         }
     }
     
@@ -129,7 +134,7 @@ open class OBDConnection: OBDConnectionProtocol {
     /// Send data request. Completion handler will be executed in 3 cases.
     /// 1) An error is occured in connection
     /// 2) Connection receive termination character ">" means response received
-    /// 3) Request timeout is reached, all currently available response will be sent
+    /// 3) The request timeout is reached, all response data received until timeout will be sent with completion
     ///
     /// - Parameters:
     ///   - data: Data to send
@@ -155,7 +160,7 @@ open class OBDConnection: OBDConnectionProtocol {
                 self?.completionQueue.async { completion?(.failure(.sendingDidFail)) }
                 return
             }
-            self?.resultCompletion = completion
+            self?.requestCompletion = completion
             self?.startTimeoutTimer()
         }
     }
@@ -209,8 +214,8 @@ open class OBDConnection: OBDConnectionProtocol {
         
         flushTimeoutTimer()
         state = .open
-        let completion = resultCompletion
-        resultCompletion = nil
+        let completion = requestCompletion
+        requestCompletion = nil
         completionQueue.async {
             completion?(result)
         }
@@ -229,16 +234,24 @@ open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: Timeout handling -
     private func startTimeoutTimer() {
-        timeoutTimer = Timer.scheduledTimer(timeInterval: requestTimeout, target: self, selector: #selector(timeoutReached), userInfo: nil, repeats: false)
+        let timer = Timer.scheduledTimer(
+            timeInterval: configuration.requestTimeout,
+            target: self,
+            selector: #selector(timeoutReached),
+            userInfo: nil,
+            repeats: false
+        )
+        requestTimeoutTimer = timer
+        RunLoop.current.add(timer, forMode: .commonModes)
     }
     
-    @objc private func timeoutReached() {
+    @objc private func timeoutReached(timer: Timer) {
         finishTransmission(result: .failure(.requestTimeout))
     }
     
     private func flushTimeoutTimer() {
         
-        timeoutTimer?.invalidate()
-        timeoutTimer = nil
+        requestTimeoutTimer?.invalidate()
+        requestTimeoutTimer = nil
     }
 }

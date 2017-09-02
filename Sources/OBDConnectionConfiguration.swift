@@ -19,13 +19,20 @@
 
 import Foundation
 
-final class OBDStreamDelegate: NSObject, StreamDelegate {
-    typealias OBDStreamDelegateEventBlock = (Stream, Stream.Event) -> Void
+public struct OBDConnectionConfiguration {
     
-    var onStreamEvent: OBDStreamDelegateEventBlock?
+    // MARK: - Connection properties -
+    public let host: String
+    public let port: UInt32
+    public var requestTimeout: TimeInterval
     
-    // MARK: - StreamDelegate -
-    @objc open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        onStreamEvent?(aStream, eventCode)
+    public static func defaultELMAdapterConfiguration() -> OBDConnectionConfiguration {
+        return OBDConnectionConfiguration(host: "192.168.0.10", port: 35000, requestTimeout: 1)
+    }
+    
+    public init(host: String, port: UInt32, requestTimeout: TimeInterval) {
+        self.host = host
+        self.port = port
+        self.requestTimeout = requestTimeout
     }
 }

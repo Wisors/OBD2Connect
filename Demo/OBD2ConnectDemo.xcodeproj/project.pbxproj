@@ -19,6 +19,7 @@
 		6D94028C1E45AF1F00041D54 /* OBDConnectionError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9402871E45AF1F00041D54 /* OBDConnectionError.swift */; };
 		6D94028D1E45AF1F00041D54 /* OBDConnectionProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9402881E45AF1F00041D54 /* OBDConnectionProtocol.swift */; };
 		6D94028E1E45AF1F00041D54 /* OBDResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9402891E45AF1F00041D54 /* OBDResult.swift */; };
+		CD7AEA7A1F5ADA64004F053E /* OBDConnectionConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7AEA791F5ADA64004F053E /* OBDConnectionConfiguration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +49,7 @@
 		6D9402871E45AF1F00041D54 /* OBDConnectionError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OBDConnectionError.swift; sourceTree = "<group>"; };
 		6D9402881E45AF1F00041D54 /* OBDConnectionProtocol.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OBDConnectionProtocol.swift; sourceTree = "<group>"; };
 		6D9402891E45AF1F00041D54 /* OBDResult.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OBDResult.swift; sourceTree = "<group>"; };
+		CD7AEA791F5ADA64004F053E /* OBDConnectionConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBDConnectionConfiguration.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 			children = (
 				6D9402851E45AF1F00041D54 /* OBDCommonTypes.swift */,
 				6D9402861E45AF1F00041D54 /* OBDConnection.swift */,
+				CD7AEA791F5ADA64004F053E /* OBDConnectionConfiguration.swift */,
 				6D9402871E45AF1F00041D54 /* OBDConnectionError.swift */,
 				6D9402881E45AF1F00041D54 /* OBDConnectionProtocol.swift */,
 				6D9402891E45AF1F00041D54 /* OBDResult.swift */,
@@ -227,6 +230,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6D9402651E45AD1400041D54 /* ViewController.swift in Sources */,
+				CD7AEA7A1F5ADA64004F053E /* OBDConnectionConfiguration.swift in Sources */,
 				6D94028C1E45AF1F00041D54 /* OBDConnectionError.swift in Sources */,
 				6D94028E1E45AF1F00041D54 /* OBDResult.swift in Sources */,
 				6D94028A1E45AF1F00041D54 /* OBDCommonTypes.swift in Sources */,
