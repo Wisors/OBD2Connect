@@ -27,21 +27,37 @@ open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: - State handling & data received callback -
     /// The completion queue is used to dispatch this block.
-    open var onStateChanged: OBDConnectionStateCallback? = nil
-    open private(set) var state: OBDConnectionState = .closed {
-        didSet { stateValueChanged(oldValue: oldValue) }
+    public var onStateChanged: OBDConnectionStateCallback? = nil
+    public private(set) var state: OBDConnectionState {
+        get {
+            pthread_rwlock_rdlock(&stateLock)
+            let state = _stateAtomicStorage
+            pthread_rwlock_unlock(&stateLock)
+            return state
+        }
+        set {
+            pthread_rwlock_wrlock(&stateLock)
+            _stateAtomicStorage = newValue
+            pthread_rwlock_unlock(&stateLock)
+        }
     }
+    private var _stateAtomicStorage: OBDConnectionState = .closed {
+        didSet { stateValueChanged(from: oldValue, to: _stateAtomicStorage) }
+    }
+    private var stateLock: pthread_rwlock_t
     
     // MARK: - Streams -
     private var streamsDelegate: OBDStreamDelegate
     private var streamQueue = DispatchQueue(label: "OBDConnectionQueue", qos: .utility, attributes: .concurrent)
     private var input: InputStream?
     private var output: OutputStream?
+    private var streamLock: pthread_rwlock_t
     
     // MARK: - Request handling -
     private var requestResponse: String = ""
-    private var requestTimeoutTimer: Timer?
+    private var requestTimeoutTimer: DispatchSourceTimer?
     private var requestCompletion: OBDResultCallback?
+    private var requestLock: pthread_rwlock_t
     
     // MARK: - Init -
     public init(configuration: OBDConnectionConfiguration = OBDConnectionConfiguration.defaultELMAdapterConfiguration(),
@@ -50,6 +66,12 @@ open class OBDConnection: OBDConnectionProtocol {
         self.configuration = configuration
         self.completionQueue = completionQueue
         self.streamsDelegate = OBDStreamDelegate()
+        self.stateLock = pthread_rwlock_t()
+        self.streamLock = pthread_rwlock_t()
+        self.requestLock = pthread_rwlock_t()
+        pthread_rwlock_init(&self.stateLock, nil)
+        pthread_rwlock_init(&self.streamLock, nil)
+        pthread_rwlock_init(&self.requestLock, nil)
         self.streamsDelegate.onStreamEvent = { [weak self] (stream, event) in
             self?.handleEvent(code: event, inStream: stream)
         }
@@ -57,12 +79,14 @@ open class OBDConnection: OBDConnectionProtocol {
     
     deinit {
         flushConnection()
+        pthread_rwlock_destroy(&stateLock)
+        pthread_rwlock_destroy(&streamLock)
+        pthread_rwlock_destroy(&requestLock)
     }
     
-    private func stateValueChanged(oldValue: OBDConnectionState) {
-        guard state != oldValue else { return }
+    private func stateValueChanged(from oldState: OBDConnectionState, to newState: OBDConnectionState) {
+        guard newState != oldState else { return }
         
-        let newState = state
         completionQueue.async(flags: .barrier, execute: { [weak self] in
             self?.onStateChanged?(newState)
         })
@@ -70,7 +94,8 @@ open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: - Open -
     open func open() {
-        guard state == .closed || state == .error(.unknown) else {
+        let currentState = state
+        guard currentState == .closed || currentState == .error(.unknown) else {
             assertionFailure("Trying to open connection while it already is opened")
             return
         }
@@ -83,27 +108,23 @@ open class OBDConnection: OBDConnectionProtocol {
                                            configuration.port,
                                            &readStream,
                                            &writeStream)
-        
-        input = readStream?.takeRetainedValue()
-        output = writeStream?.takeRetainedValue()
-        streamQueue.async { [weak self] in
-            
-            self?.configureAndOpen(stream: self?.input)
-            self?.configureAndOpen(stream: self?.output)
-            RunLoop.current.run()
+        guard let inputStream: InputStream = readStream?.takeRetainedValue(),
+            let outputStream: OutputStream = writeStream?.takeRetainedValue() else {
+            state = .error(.unknown)
+            return
         }
-        streamQueue.async { [weak self] in
-            self?.startTimeoutTimer()
-        }
+        pthread_rwlock_wrlock(&streamLock)
+        input = inputStream
+        output = outputStream
+        inputStream.delegate = self.streamsDelegate
+        outputStream.delegate = self.streamsDelegate
+        CFReadStreamSetDispatchQueue(input, streamQueue)
+        CFWriteStreamSetDispatchQueue(output, streamQueue)
+        outputStream.open()
+        outputStream.open()
+        pthread_rwlock_wrlock(&streamLock)
     }
-    
-    private func configureAndOpen(stream: Stream?) {
-        
-        stream?.delegate = streamsDelegate
-        stream?.schedule(in: RunLoop.current, forMode: .defaultRunLoopMode)
-        stream?.open()
-    }
-    
+
     // MARK: - Close -
     open func close() {
         guard state != .closed else { return }
@@ -112,21 +133,29 @@ open class OBDConnection: OBDConnectionProtocol {
         state = .closed
     }
     
-    private func close(withError error: OBDConnectionError) {
-        
-        flushConnection()
-        state = .error(error)
-    }
-    
     private func flushConnection() {
         
-        flushTimeoutTimer()
-        output?.close()
-        output?.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
-        output = nil
-        input?.close()
-        input?.remove(from: RunLoop.current, forMode: .defaultRunLoopMode)
+        pthread_rwlock_wrlock(&requestLock)
+        invalidateRequestTimeoutTimer()
+        requestCompletion = nil
+        requestResponse = ""
+        pthread_rwlock_unlock(&requestLock)
+        pthread_rwlock_wrlock(&streamLock)
+        if let input = input {
+            
+            CFReadStreamSetDispatchQueue(input, nil)
+            input.delegate = nil
+            input.close()
+        }
+        if let output = output {
+            
+            CFWriteStreamSetDispatchQueue(output, nil)
+            output.delegate = nil
+            output.close()
+        }
         input = nil
+        output = nil
+        pthread_rwlock_wrlock(&streamLock)
     }
     
     // MARK: - Data transmitting -
@@ -151,17 +180,20 @@ open class OBDConnection: OBDConnectionProtocol {
             return
         }
         streamQueue.async { [weak self] in
-            
-            self?.state = .transmitting
-            self?.requestResponse = ""
+            guard let `self` = self else { return }
+
+            self.state = .transmitting
+            pthread_rwlock_wrlock(&self.requestLock)
+            defer { pthread_rwlock_unlock(&self.requestLock) }
+            self.requestResponse = ""
             guard data.withUnsafeBytes({ output.write($0, maxLength: data.count) }) == data.count else {
-                
-                self?.state = .open
-                self?.completionQueue.async { completion?(.failure(.sendingDidFail)) }
+
+                self.state = .open
+                self.finishTransmission(result: .failure(.sendingDidFail))
                 return
             }
-            self?.requestCompletion = completion
-            self?.startTimeoutTimer()
+            self.requestCompletion = completion
+            self.startRequestTimeoutTimer()
         }
     }
 
@@ -175,15 +207,16 @@ open class OBDConnection: OBDConnectionProtocol {
             case Stream.Event.errorOccurred: handleErrorState(inStream: stream)
             case Stream.Event.hasBytesAvailable: handleBytesAvailable(inStream: stream)
             case Stream.Event.hasSpaceAvailable: return
-            case Stream.Event.endEncountered: close(withError: .connectionDidEnd)
+            case Stream.Event.endEncountered: handle(connectionError: .connectionDidEnd)
             default: return
         }
     }
     
     private func checkOpenCompleted() {
         guard state != .open else { return }
-        guard (input?.streamStatus == .open || input?.streamStatus == .reading) &&
-            output?.streamStatus == .open else { return }
+        guard let input = input, let output = output else { return }
+        guard (input.streamStatus == .open || input.streamStatus == .reading) &&
+            output.streamStatus == .open else { return }
         
         state = .open
     }
@@ -200,10 +233,13 @@ open class OBDConnection: OBDConnectionProtocol {
     }
     
     private func handleReceived(data: Data) {
+        
+        pthread_rwlock_wrlock(&self.requestLock)
+        defer { pthread_rwlock_unlock(&self.requestLock) }
         guard let response = String(bytes: data, encoding: String.Encoding.ascii) else {
             finishTransmission(result: .failure(.responseIsInvaid)); return
         }
-        
+
         requestResponse = requestResponse + response
         if requestResponse.hasSuffix(">") {
             finishTransmission(result: .success(requestResponse))
@@ -212,10 +248,10 @@ open class OBDConnection: OBDConnectionProtocol {
     
     private func finishTransmission(result: OBDResult<String>) {
         
-        flushTimeoutTimer()
-        state = .open
+        invalidateRequestTimeoutTimer()
         let completion = requestCompletion
         requestCompletion = nil
+        requestResponse = ""
         completionQueue.async {
             completion?(result)
         }
@@ -229,29 +265,31 @@ open class OBDConnection: OBDConnectionProtocol {
         } else {
             error = .unknown
         }
-        close(withError: error)
+        handle(connectionError: error)
     }
     
-    // MARK: Timeout handling -
-    private func startTimeoutTimer() {
-        let timer = Timer.scheduledTimer(
-            timeInterval: configuration.requestTimeout,
-            target: self,
-            selector: #selector(timeoutReached),
-            userInfo: nil,
-            repeats: false
-        )
-        requestTimeoutTimer = timer
-        RunLoop.current.add(timer, forMode: .commonModes)
-    }
-    
-    @objc private func timeoutReached(timer: Timer) {
-        finishTransmission(result: .failure(.requestTimeout))
-    }
-    
-    private func flushTimeoutTimer() {
+    private func handle(connectionError: OBDConnectionError) {
         
-        requestTimeoutTimer?.invalidate()
+        flushConnection()
+        state = .error(connectionError)
+    }
+    
+    // MARK: - Timeout handling -
+    private func startRequestTimeoutTimer() {
+        
+        invalidateRequestTimeoutTimer()
+        let timer = DispatchSource.makeTimerSource(queue: streamQueue)
+        timer.scheduleOneshot(deadline: .now() + configuration.requestTimeout)
+        timer.setEventHandler { [weak self] in
+            self?.finishTransmission(result: .failure(.requestTimeout))
+        }
+        timer.resume()
+        requestTimeoutTimer? = timer
+    }
+    
+    private func invalidateRequestTimeoutTimer() {
+        
+        requestTimeoutTimer?.cancel()
         requestTimeoutTimer = nil
     }
 }
