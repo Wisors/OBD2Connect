@@ -78,6 +78,7 @@ open class OBDConnection: OBDConnectionProtocol {
     }
     
     deinit {
+
         flushConnection()
         pthread_rwlock_destroy(&stateLock)
         pthread_rwlock_destroy(&streamLock)
@@ -284,7 +285,7 @@ open class OBDConnection: OBDConnectionProtocol {
             self?.finishTransmission(result: .failure(.requestTimeout))
         }
         timer.resume()
-        requestTimeoutTimer? = timer
+        requestTimeoutTimer = timer
     }
     
     private func invalidateRequestTimeoutTimer() {
