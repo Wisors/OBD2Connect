@@ -121,7 +121,7 @@ open class OBDConnection: OBDConnectionProtocol {
         outputStream.delegate = self.streamsDelegate
         CFReadStreamSetDispatchQueue(input, streamQueue)
         CFWriteStreamSetDispatchQueue(output, streamQueue)
-        outputStream.open()
+        inputStream.open()
         outputStream.open()
         pthread_rwlock_wrlock(&streamLock)
     }
@@ -253,6 +253,7 @@ open class OBDConnection: OBDConnectionProtocol {
         let completion = requestCompletion
         requestCompletion = nil
         requestResponse = ""
+        state = .open
         completionQueue.async {
             completion?(result)
         }
