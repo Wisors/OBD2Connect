@@ -1,13 +1,13 @@
 #OBD2Connect
 
 <p align="left">
-<a href="https://developer.apple.com/swift"><img src="https://img.shields.io/badge/Swift_3.2-compatible-4BC51D.svg?style=flat" alt="Swift 3.2 compatible" /></a>
+<a href="https://developer.apple.com/swift"><img src="https://img.shields.io/badge/Swift_4.0-compatible-4BC51D.svg?style=flat" alt="Swift 4.0compatible" /></a>
 <a href="https://cocoapods.org/pods/obd2connect"><img src="https://img.shields.io/badge/pod-2.0.0-blue.svg" alt="CocoaPods compatible" /></a>
 <img src="https://img.shields.io/badge/platform-iOS-blue.svg?style=flat" alt="Platform iOS" />
 <a href="https://raw.githubusercontent.com/Wisors/OBD2Connect/master/LICENSE"><img src="http://img.shields.io/badge/license-MIT-blue.svg?style=flat" alt="License: MIT" /></a>
 </p>
 
-OBD2Connect is a ligthweight component that handles serial connection to a OBD2 adapter via socket and provides you self-explanatory interface.
+OBD2Connect is a ligthweight component. It handles serial connection to a OBD2 adapter via socket and provides you self-explanatory interface.
 
 ## Getting Started
 
