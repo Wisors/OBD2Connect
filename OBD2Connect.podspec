@@ -9,8 +9,8 @@ Pod::Spec.new do |s|
 
     s.author                = { 'Nikishin Alexander' => 'wisdoomer@gmail.com' }
     s.license               = { :type => 'MIT', :file => 'LICENSE' }
-    s.platforms             = { :ios => '8.0' }
-    s.ios.deployment_target = '8.0'
+    s.platforms             = { :ios => '9.0' }
+    s.ios.deployment_target = '9.0'
 
     s.source_files          = 'Sources/*.swift'
     s.source                = { :git => 'https://github.com/Wisors/OBD2Connect.git', :tag => s.version }
