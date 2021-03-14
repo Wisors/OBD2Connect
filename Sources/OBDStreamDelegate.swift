@@ -25,7 +25,8 @@ final class OBDStreamDelegate: NSObject, StreamDelegate {
     var onStreamEvent: OBDStreamDelegateEventBlock?
     
     // MARK: - StreamDelegate -
-    @objc open func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+    @objc
+    public func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         onStreamEvent?(aStream, eventCode)
     }
 }

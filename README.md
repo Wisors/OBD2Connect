@@ -1,8 +1,8 @@
 #OBD2Connect
 
 <p align="left">
-<a href="https://developer.apple.com/swift"><img src="https://img.shields.io/badge/Swift_4.0-compatible-4BC51D.svg?style=flat" alt="Swift 4.0compatible" /></a>
-<a href="https://cocoapods.org/pods/obd2connect"><img src="https://img.shields.io/badge/pod-2.0.0-blue.svg" alt="CocoaPods compatible" /></a>
+<a href="https://developer.apple.com/swift"><img src="https://img.shields.io/badge/Swift_5.0-compatible-4BC51D.svg?style=flat" alt="Swift 5.0compatible" /></a>
+<a href="https://cocoapods.org/pods/obd2connect"><img src="https://img.shields.io/badge/pod-2.2.0-blue.svg" alt="CocoaPods compatible" /></a>
 <img src="https://img.shields.io/badge/platform-iOS-blue.svg?style=flat" alt="Platform iOS" />
 <a href="https://raw.githubusercontent.com/Wisors/OBD2Connect/master/LICENSE"><img src="http://img.shields.io/badge/license-MIT-blue.svg?style=flat" alt="License: MIT" /></a>
 </p>
@@ -27,9 +27,9 @@ Clone the repo and drag files from `Sources` folder into your Xcode project.
 
 ## Requirements
 
-- Swift 3.0
+- Swift 5.0
 - iOS 8.0+
-- Xcode 7.0+
+- Xcode 12.0+
 
 ## License
 

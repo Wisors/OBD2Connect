@@ -22,8 +22,8 @@ import Foundation
 open class OBDConnection: OBDConnectionProtocol {
     
     // MARK: - Connection properties -
-    open let configuration: OBDConnectionConfiguration
-    open let completionQueue: DispatchQueue
+    public let configuration: OBDConnectionConfiguration
+    public let completionQueue: DispatchQueue
     
     // MARK: - State handling & data received callback -
     /// The completion queue is used to dispatch this block.
@@ -187,7 +187,10 @@ open class OBDConnection: OBDConnectionProtocol {
             pthread_rwlock_wrlock(&self.requestLock)
             defer { pthread_rwlock_unlock(&self.requestLock) }
             self.requestResponse = ""
-            guard data.withUnsafeBytes({ output.write($0, maxLength: data.count) }) == data.count else {
+            let writeCount = data.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) -> Int in
+                output.write(buffer.bindMemory(to: UInt8.self).baseAddress!, maxLength: data.count)
+            }
+            guard writeCount == data.count else {
 
                 self.state = .open
                 self.finishTransmission(result: .failure(.sendingDidFail))
@@ -281,7 +284,7 @@ open class OBDConnection: OBDConnectionProtocol {
         
         invalidateRequestTimeoutTimer()
         let timer = DispatchSource.makeTimerSource(queue: streamQueue)
-        timer.scheduleOneshot(deadline: .now() + configuration.requestTimeout)
+        timer.schedule(deadline: .now() + configuration.requestTimeout)
         timer.setEventHandler { [weak self] in
             self?.finishTransmission(result: .failure(.requestTimeout))
         }
