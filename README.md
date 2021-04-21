@@ -11,7 +11,7 @@ OBD2Connect is a ligthweight component. It handles serial connection to a OBD2 a
 
 ## Getting Started
 
-An [example app](Demo) is included demonstrating OBD2Connect's functionality.
+An [example app](Demo) is included demonstrating OBD2Connect's functionality....
 
 ## Installation
 
