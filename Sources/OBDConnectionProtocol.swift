@@ -20,7 +20,7 @@
 import Foundation
 
 /// Protocol covers properties and methods of the connection to an OBD adapter.
-public protocol OBDConnectionProtocol: class {
+public protocol OBDConnectionProtocol: AnyObject {
     
     var configuration: OBDConnectionConfiguration { get }
     
